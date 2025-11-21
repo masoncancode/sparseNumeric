@@ -1,11 +1,11 @@
-#' sparseNumeric: an S4 sparse numeric vector class
+#' sparseNumeric: sparse numeric vector class and methods
 #'
 #' The sparseNumeric package provides the S4 class [`sparse_numeric`] along
-#' with methods for computing means, norms, and standardized versions of
-#' sparse vectors.
+#' with methods for arithmetic, plotting, computing means and norms, and
+#' standardizing sparse vectors.
 #'
 #' @docType package
 #' @name sparseNumeric
 #' @import methods
-#' @importFrom stats mean sd
 NULL
+

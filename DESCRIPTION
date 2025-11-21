@@ -18,5 +18,5 @@ Suggests:
     pkgdown
 Config/testthat/edition: 3
 LazyData: false
-URL: https://github.com/masoncancode/sparseNumeric
+URL: https://github.com/masoncancode/sparseNumeric, https://masoncancode.github.io/sparseNumeric/
 BugReports: https://github.com/masoncancode/sparseNumeric/issues

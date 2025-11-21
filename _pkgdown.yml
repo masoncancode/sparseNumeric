@@ -1,13 +1,4 @@
-## 7. pkgdown config: `_pkgdown.yml`
-
-```yaml
+url: https://masoncancode.github.io/sparseNumeric/
 template:
   bootstrap: 5
 
-url: https://masoncancode.github.io/sparseNumeric
-
-navbar:
-  title: sparseNumeric
-  left:
-    - text: "Reference"
-      href: reference/index.html

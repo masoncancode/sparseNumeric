@@ -1,228 +1,353 @@
-#' Sparse numeric vector S4 class
+#' Sparse numeric vector class
 #'
-#' `sparse_numeric` stores a mostly-zero numeric vector in compressed form.
+#' `sparse_numeric` stores a mostly-zero numeric vector in compressed form
+#' using non-zero values and their 1-based positions.
 #'
-#' @slot value Numeric vector of non-zero values.
-#' @slot pos Integer vector of 1-based positions of the non-zero values.
-#' @slot length Length of the full underlying vector.
+#' @slot value numeric vector of non-zero values.
+#' @slot pos integer vector of 1-based positions of non-zero values.
+#' @slot length integer giving the length of the underlying full vector.
 #'
 #' @export
 setClass(
   "sparse_numeric",
-  slots = list(
-    value  = "numeric",
-    pos    = "integer",
-    length = "integer"
-  ),
-  validity = function(object) {
-    # value and pos must have the same length
-    if (length(object@value) != length(object@pos)) {
-      return("value and pos must have the same length")
-    }
-
-    # positions must be within 1:length
-    if (any(object@pos < 1L) || any(object@pos > object@length)) {
-      return("pos must be between 1 and 'length'")
-    }
-
-    # no stored zeros
-    if (any(object@value == 0)) {
-      return("value must not contain zeros")
-    }
-
-    # positions must be strictly increasing
-    if (any(diff(object@pos) <= 0)) {
-      return("pos must be strictly increasing")
-    }
-
-    TRUE
-  }
-)
-
-#' Construct a sparse_numeric vector
-#'
-#' @param value Numeric vector of non-zero values.
-#' @param pos Integer vector of 1-based positions of non-zero values.
-#' @param length Integer, length of the full underlying vector. If omitted
-#'   and `pos` is non-empty, the length defaults to `max(pos)`.
-#'
-#' @return An object of class [`sparse_numeric`].
-#' @export
-sparse_numeric <- function(value = numeric(),
-                           pos = integer(),
-                           length = if (length(pos) == 0L) 0L else max(pos)) {
-  new(
-    "sparse_numeric",
-    value  = as.numeric(value),
-    pos    = as.integer(pos),
-    length = as.integer(length)
+  slots = c(
+    value  = "numeric",   # non-zero values
+    pos    = "integer",   # positions (1-based)
+    length = "integer"    # full length of vector
   )
-}
-
-# helper: internal dense reconstruction
-.to_dense <- function(x) {
-  v <- numeric(x@length)
-  if (length(x@pos) > 0L) {
-    v[x@pos] <- x@value
-  }
-  v
-}
-
-#' @export
-setMethod(
-  "length",
-  signature(x = "sparse_numeric"),
-  function(x) {
-    x@length
-  }
 )
 
-#' @export
-setMethod(
-  "show",
-  signature(object = "sparse_numeric"),
-  function(object) {
-    cat("An object of class \"sparse_numeric\"\n")
-    cat("Length:", object@length, "\n")
-    cat("Non-zero entries:", length(object@value), "\n")
-    if (length(object@value) > 0L) {
-      df <- data.frame(
-        pos   = object@pos,
-        value = object@value
-      )
-      print(df, row.names = FALSE)
+# validity ---------------------------------------------------------------
+
+setValidity("sparse_numeric", function(object) {
+  err <- character()
+  n <- object@length
+  v <- object@value
+  p <- object@pos
+
+  if (length(n) != 1L || is.na(n) || n < 0L)
+    err <- c(err, "'length' must be a single non-negative integer")
+
+  if (length(v) != length(p))
+    err <- c(err, "'value' and 'pos' must have the same length")
+
+  if (anyNA(v))           err <- c(err, "'value' cannot contain NA")
+  if (any(!is.finite(v))) err <- c(err, "'value' must be finite")
+  if (any(v == 0))        err <- c(err, "'value' should not store zeros")
+
+  if (length(p)) {
+    if (anyNA(p))            err <- c(err, "'pos' cannot contain NA")
+    if (any(p < 1L | p > n)) err <- c(err, "'pos' must be in [1, length]")
+    if (any(duplicated(p)))  err <- c(err, "'pos' must be unique")
+    if (length(p) > 1L && any(diff(p) <= 0))
+      err <- c(err, "'pos' must be strictly increasing")
+  }
+
+  if (length(err)) err else TRUE
+})
+
+# helper functions -------------------------------------------------------
+
+make_sparse <- function(val, idx, n) {
+  if (length(val)) {
+    o <- order(idx)
+    idx <- as.integer(idx[o])
+    val <- as.numeric(val[o])
+    keep <- val != 0
+    idx <- idx[keep]; val <- val[keep]
+  } else {
+    idx <- integer(); val <- numeric()
+  }
+  new("sparse_numeric", value = val, pos = idx, length = as.integer(n))
+}
+
+check_len <- function(x, y) {
+  if (x@length != y@length)
+    stop("Lengths differ: ", x@length, " vs ", y@length, call. = FALSE)
+  invisible(TRUE)
+}
+
+add_or_sub <- function(x, y, add = TRUE) {
+  xi <- x@pos; xv <- x@value
+  yi <- y@pos; yv <- y@value
+  i <- j <- 1L
+  out_i <- integer(0); out_v <- numeric(0)
+
+  while (i <= length(xi) || j <= length(yi)) {
+    if (i <= length(xi) && (j > length(yi) || xi[i] < yi[j])) {
+      val <- xv[i]
+      if (val != 0) { out_i <- c(out_i, xi[i]); out_v <- c(out_v, val) }
+      i <- i + 1L
+    } else if (j <= length(yi) && (i > length(xi) || yi[j] < xi[i])) {
+      val <- if (add) yv[j] else -yv[j]
+      if (val != 0) { out_i <- c(out_i, yi[j]); out_v <- c(out_v, val) }
+      j <- j + 1L
+    } else { # equal position
+      val <- if (add) xv[i] + yv[j] else xv[i] - yv[j]
+      if (val != 0) { out_i <- c(out_i, xi[i]); out_v <- c(out_v, val) }
+      i <- i + 1L; j <- j + 1L
     }
   }
-)
+  make_sparse(out_v, out_i, x@length)
+}
 
-#-----------------------------
-# mean() for sparse_numeric
-#-----------------------------
+mul_intersect <- function(x, y) {
+  xi <- x@pos; xv <- x@value
+  yi <- y@pos; yv <- y@value
+  i <- j <- 1L
+  out_i <- integer(0); out_v <- numeric(0)
+
+  while (i <= length(xi) && j <= length(yi)) {
+    if (xi[i] == yi[j]) {
+      prod <- xv[i] * yv[j]
+      if (prod != 0) { out_i <- c(out_i, xi[i]); out_v <- c(out_v, prod) }
+      i <- i + 1L; j <- j + 1L
+    } else if (xi[i] < yi[j]) {
+      i <- i + 1L
+    } else {
+      j <- j + 1L
+    }
+  }
+  make_sparse(out_v, out_i, x@length)
+}
+
+dot_sparse <- function(x, y) {
+  xi <- x@pos; xv <- x@value
+  yi <- y@pos; yv <- y@value
+  i <- j <- 1L; s <- 0
+  while (i <= length(xi) && j <= length(yi)) {
+    if (xi[i] == yi[j]) { s <- s + xv[i] * yv[j]; i <- i + 1L; j <- j + 1L }
+    else if (xi[i] < yi[j]) i <- i + 1L else j <- j + 1L
+  }
+  s
+}
+
+# coercions --------------------------------------------------------------
+
+setAs("numeric", "sparse_numeric", function(from) {
+  idx <- which(from != 0)
+  make_sparse(from[idx], as.integer(idx), length(from))
+})
+
+setAs("sparse_numeric", "numeric", function(from) {
+  out <- numeric(from@length)
+  if (length(from@pos)) out[from@pos] <- from@value
+  out
+})
+
+# sparse arithmetic generics & methods ----------------------------------
+
+#' Sparse arithmetic operations
+#'
+#' These generics and methods implement basic arithmetic on
+#' [`sparse_numeric`] vectors.
+#'
+#' @param x,y Objects of class [`sparse_numeric`].
+#' @param ... Ignored.
+#'
+#' @return For `sparse_add`, `sparse_sub`, and `sparse_mult`, a
+#'   [`sparse_numeric`] object. For `sparse_crossprod`, a numeric scalar
+#'   giving the dot product.
+#'
+#' @name sparse_ops
+NULL
+
+#' @rdname sparse_ops
+#' @export
+if (!isGeneric("sparse_add"))
+  setGeneric("sparse_add", function(x, y, ...) standardGeneric("sparse_add"))
+
+#' @rdname sparse_ops
+#' @export
+if (!isGeneric("sparse_sub"))
+  setGeneric("sparse_sub", function(x, y, ...) standardGeneric("sparse_sub"))
+
+#' @rdname sparse_ops
+#' @export
+if (!isGeneric("sparse_mult"))
+  setGeneric("sparse_mult", function(x, y, ...) standardGeneric("sparse_mult"))
+
+#' @rdname sparse_ops
+#' @export
+if (!isGeneric("sparse_crossprod"))
+  setGeneric("sparse_crossprod", function(x, y, ...) standardGeneric("sparse_crossprod"))
+
+# some sessions don’t have an S4 plot generic yet
+if (!isGeneric("plot"))
+  setGeneric("plot", function(x, y, ...) standardGeneric("plot"))
+
+#' @rdname sparse_ops
+#' @export
+setMethod("sparse_add", c("sparse_numeric", "sparse_numeric"),
+          function(x, y, ...) { check_len(x, y); add_or_sub(x, y, add = TRUE) })
+
+#' @rdname sparse_ops
+#' @export
+setMethod("sparse_sub", c("sparse_numeric", "sparse_numeric"),
+          function(x, y, ...) { check_len(x, y); add_or_sub(x, y, add = FALSE) })
+
+#' @rdname sparse_ops
+#' @export
+setMethod("sparse_mult", c("sparse_numeric", "sparse_numeric"),
+          function(x, y, ...) { check_len(x, y); mul_intersect(x, y) })
+
+#' @rdname sparse_ops
+#' @export
+setMethod("sparse_crossprod", c("sparse_numeric", "sparse_numeric"),
+          function(x, y, ...) { check_len(x, y); dot_sparse(x, y) })
+
+# operators --------------------------------------------------------------
+
+setMethod("+", c(e1 = "sparse_numeric", e2 = "sparse_numeric"),
+          function(e1, e2) sparse_add(e1, e2))
+
+setMethod("-", c(e1 = "sparse_numeric", e2 = "sparse_numeric"),
+          function(e1, e2) sparse_sub(e1, e2))
+
+setMethod("*", c(e1 = "sparse_numeric", e2 = "sparse_numeric"),
+          function(e1, e2) sparse_mult(e1, e2))
+
+# show & plot ------------------------------------------------------------
+
+setMethod("show", "sparse_numeric", function(object) {
+  k <- length(object@pos)
+  cat(sprintf("sparse_numeric(length=%d, nnz=%d)\n", object@length, k))
+  if (!k) {
+    cat("  (all zeros)\n")
+  } else {
+    n <- min(10L, k)
+    cat("  pos : ", paste(object@pos[seq_len(n)], collapse = " "),
+        if (k > n) " ..." else "", "\n", sep = "")
+    cat("  vals: ", paste(signif(object@value[seq_len(n)], 6), collapse = " "),
+        if (k > n) " ..." else "", "\n", sep = "")
+  }
+})
+
+setMethod("plot", c("sparse_numeric", "sparse_numeric"),
+          function(x, y, ...) {
+            check_len(x, y)
+            if (!length(x@pos) || !length(y@pos)) {
+              plot(NA, xlim = c(0.5, max(1L, x@length)), ylim = c(0, 1), xaxt = "n",
+                   xlab = "Index", ylab = "Value", main = "Overlapping non-zero elements")
+              legend("topright", "overlap: 0", bty = "n")
+              return(invisible())
+            }
+            m <- match(x@pos, y@pos, nomatch = 0L)
+            idx <- which(m > 0L)
+            if (!length(idx)) {
+              plot(NA, xlim = c(0.5, max(1L, x@length)), ylim = c(0, 1), xaxt = "n",
+                   xlab = "Index", ylab = "Value", main = "Overlapping non-zero elements")
+              legend("topright", "overlap: 0", bty = "n")
+              return(invisible())
+            }
+            xv <- x@value[idx]
+            yv <- y@value[m[idx]]
+            plot(xv, yv,
+                 xlab = "x (overlap)", ylab = "y (overlap)",
+                 main = sprintf("Overlap: %d", length(idx)), ...)
+            abline(h = 0, v = 0, lty = 3)
+          })
+
+# NEW: mean() method -----------------------------------------------------
 
 #' Mean of a sparse_numeric vector
 #'
-#' Computes the mean of a sparse vector, including all implicit zeros,
-#' without coercing to a dense numeric vector.
+#' Computes the mean of the underlying full vector (including implicit zeros)
+#' without coercing to a dense representation.
 #'
 #' @param x A [`sparse_numeric`] object.
 #' @param ... Ignored.
 #'
-#' @return Numeric scalar, the mean of the full underlying vector.
+#' @return Numeric scalar mean.
 #' @export
-setMethod(
-  "mean",
-  signature(x = "sparse_numeric"),
-  function(x, ...) {
-    n <- as.integer(x@length)
-    if (n == 0L) {
-      return(NA_real_)
-    }
-    sum(x@value) / n
+setMethod("mean", "sparse_numeric", function(x, ...) {
+  n <- as.integer(x@length)
+  if (n == 0L) {
+    return(NA_real_)
   }
-)
+  sum(x@value) / n
+})
 
-#-----------------------------
-# norm() generic + method
-#-----------------------------
+# NEW: norm() generic + method ------------------------------------------
 
-#' Norm of a vector
+#' Euclidean norm of a sparse_numeric vector
 #'
-#' For [`sparse_numeric`] objects this returns the Euclidean (L2) norm.
-#' For other objects it falls back to [base::norm()].
+#' Computes \\(\\sqrt{\\sum_i x_i^2}\\) for the underlying vector.
 #'
-#' @param x Object for which to compute a norm.
-#' @param ... Passed on to methods.
+#' @param x A [`sparse_numeric`] object.
+#' @param ... Ignored.
 #'
+#' @return Numeric scalar norm.
 #' @export
-setGeneric(
-  "norm",
-  function(x, ...) standardGeneric("norm"),
-  useAsDefault = function(x, ...) base::norm(x, ...)
-)
+if (!isGeneric("norm"))
+  setGeneric("norm", function(x, ...) standardGeneric("norm"))
 
-#' @describeIn norm Euclidean norm of a sparse_numeric vector.
-#'
+#' @rdname norm
 #' @export
-setMethod(
-  "norm",
-  signature(x = "sparse_numeric"),
-  function(x, ...) {
-    sqrt(sum(x@value^2))
-  }
-)
+setMethod("norm", "sparse_numeric", function(x, ...) {
+  sqrt(sum(x@value^2))
+})
 
-#-----------------------------
-# standardize() generic + method
-#-----------------------------
-
-#' Standardize a vector
-#'
-#' Generic for creating a standardized version of an object.
-#'
-#' @param x Object to standardize.
-#' @param ... Passed on to methods.
-#'
-#' @export
-setGeneric(
-  "standardize",
-  function(x, ...) standardGeneric("standardize")
-)
+# NEW: standardize() generic + method -----------------------------------
 
 #' Standardize a sparse_numeric vector
 #'
-#' Centers and scales a [`sparse_numeric`] vector so that the underlying
-#' dense vector (including zeros) has mean 0 and standard deviation 1.
+#' Returns a standardized version of `x` where the underlying full vector
+#' (including zeros) has mean 0 and sample standard deviation 1.
 #'
 #' @param x A [`sparse_numeric`] object.
-#' @return A new [`sparse_numeric`] object containing standardized values.
+#' @param ... Ignored.
+#'
+#' @return A new [`sparse_numeric`] object.
 #' @export
-setMethod(
-  "standardize",
-  signature(x = "sparse_numeric"),
-  function(x, ...) {
-    n <- as.integer(x@length)
-    if (n <= 1L) {
-      stop("Cannot standardize a vector of length <= 1.")
-    }
+if (!isGeneric("standardize"))
+  setGeneric("standardize", function(x, ...) standardGeneric("standardize"))
 
-    sum_x  <- sum(x@value)
-    sum_x2 <- sum(x@value^2)
-
-    mu <- sum_x / n
-    # sample variance (like stats::var)
-    var_num <- sum_x2 - n * mu^2
-    var_den <- n - 1L
-
-    if (var_den <= 0L) {
-      stop("Cannot standardize: not enough observations.")
-    }
-
-    var <- var_num / var_den
-    if (!is.finite(var) || var <= 0) {
-      stop("Standard deviation is zero or not finite; cannot standardize.")
-    }
-
-    s <- sqrt(var)
-
-    # build dense, standardize, then convert back to sparse
-    full <- .to_dense(x)
-    full_std <- (full - mu) / s
-
-    nz_pos <- which(full_std != 0)
-    if (length(nz_pos) == 0L) {
-      return(new(
-        "sparse_numeric",
-        value  = numeric(),
-        pos    = integer(),
-        length = as.integer(n)
-      ))
-    }
-
-    new(
-      "sparse_numeric",
-      value  = full_std[nz_pos],
-      pos    = as.integer(nz_pos),
-      length = as.integer(n)
-    )
+#' @rdname standardize
+#' @export
+setMethod("standardize", "sparse_numeric", function(x, ...) {
+  n <- as.integer(x@length)
+  if (n <= 1L) {
+    stop("Cannot standardize a vector of length <= 1.")
   }
-)
+
+  # compute mean and variance using sparse representation
+  sum_x  <- sum(x@value)
+  sum_x2 <- sum(x@value^2)
+
+  mu <- sum_x / n
+
+  # sample variance (like stats::var)
+  var_num <- sum_x2 - n * mu^2
+  var_den <- n - 1L
+
+  if (var_den <= 0L) {
+    stop("Cannot standardize: not enough observations.")
+  }
+
+  var <- var_num / var_den
+  if (!is.finite(var) || var <= 0) {
+    stop("Standard deviation is zero or not finite; cannot standardize.")
+  }
+
+  s <- sqrt(var)
+
+  # build dense, standardize, then convert back to sparse
+  dense <- numeric(n)
+  if (length(x@pos)) dense[x@pos] <- x@value
+  dense_std <- (dense - mu) / s
+
+  nz <- which(dense_std != 0)
+  if (!length(nz)) {
+    return(new("sparse_numeric",
+               value  = numeric(),
+               pos    = integer(),
+               length = as.integer(n)))
+  }
+
+  new("sparse_numeric",
+      value  = as.numeric(dense_std[nz]),
+      pos    = as.integer(nz),
+      length = as.integer(n))
+})
+
