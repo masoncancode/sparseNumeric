@@ -1,11 +1,22 @@
 Package: sparseNumeric
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Title: Sparse Numeric Vector Class and Methods
+Version: 0.1.0
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Mason", "Reed", email = "you@example.com", role = c("aut", "cre"))
+Description: Implements an S4 sparse numeric vector class with methods for
+    arithmetic, plotting, computing means and norms, and standardizing vectors
+    without materializing dense representations unless necessary.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+RoxygenNote: 7.3.2
+Imports:
+    methods
+Suggests:
+    testthat (>= 3.0.0),
+    covr,
+    pkgdown
+Config/testthat/edition: 3
+LazyData: false
+URL: https://github.com/masoncancode/sparseNumeric
+BugReports: https://github.com/masoncancode/sparseNumeric/issues
