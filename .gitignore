@@ -6,8 +6,5 @@
 .DS_Store
 .Rproj.user/
 .Rcheck/
-docs/
-
-docs
 .httr-oauth
 .quarto
