@@ -13,4 +13,5 @@ includes methods for:
 You can install the development version from GitHub once the repository
 is online:
 
-\`\`\`r \# install.packages(“remotes”) remotes::install_github(“/”)
+\`\`\`r \# install.packages(“remotes”)
+remotes::install_github(“masoncancode/sparseNumeric”)

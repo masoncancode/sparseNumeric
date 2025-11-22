@@ -1,7 +1,15 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://masoncancode.github.io/sparseNumeric/404.html</loc></url>
+<url><loc>https://masoncancode.github.io/sparseNumeric/LICENSE-text.html</loc></url>
+<url><loc>https://masoncancode.github.io/sparseNumeric/LICENSE.html</loc></url>
 <url><loc>https://masoncancode.github.io/sparseNumeric/authors.html</loc></url>
 <url><loc>https://masoncancode.github.io/sparseNumeric/index.html</loc></url>
 <url><loc>https://masoncancode.github.io/sparseNumeric/reference/index.html</loc></url>
+<url><loc>https://masoncancode.github.io/sparseNumeric/reference/mean-sparse_numeric-method.html</loc></url>
+<url><loc>https://masoncancode.github.io/sparseNumeric/reference/norm.html</loc></url>
+<url><loc>https://masoncancode.github.io/sparseNumeric/reference/sparseNumeric.html</loc></url>
+<url><loc>https://masoncancode.github.io/sparseNumeric/reference/sparse_numeric-class.html</loc></url>
+<url><loc>https://masoncancode.github.io/sparseNumeric/reference/sparse_ops.html</loc></url>
+<url><loc>https://masoncancode.github.io/sparseNumeric/reference/standardize.html</loc></url>
 </urlset>
 
