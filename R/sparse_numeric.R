@@ -1,11 +1,12 @@
-#' Sparse numeric vector class
+#' Sparse numeric vector S4 class
 #'
-#' `sparse_numeric` stores a mostly-zero numeric vector in compressed form
-#' using non-zero values and their 1-based positions.
+#' The \linkS4class{sparse_numeric} class stores a mostly-zero numeric
+#' vector in compressed form using non-zero values and their 1-based
+#' positions.
 #'
-#' @slot value numeric vector of non-zero values.
-#' @slot pos integer vector of 1-based positions of non-zero values.
-#' @slot length integer giving the length of the underlying full vector.
+#' @slot value Numeric vector of non-zero values.
+#' @slot pos Integer vector of 1-based positions of non-zero values.
+#' @slot length Integer giving the length of the underlying full vector.
 #'
 #' @export
 setClass(
@@ -17,7 +18,9 @@ setClass(
   )
 )
 
-# validity ---------------------------------------------------------------
+# -------------------------------------------------------------------------
+# validity
+# -------------------------------------------------------------------------
 
 setValidity("sparse_numeric", function(object) {
   err <- character()
@@ -46,7 +49,9 @@ setValidity("sparse_numeric", function(object) {
   if (length(err)) err else TRUE
 })
 
-# helper functions -------------------------------------------------------
+# -------------------------------------------------------------------------
+# helpers
+# -------------------------------------------------------------------------
 
 make_sparse <- function(val, idx, n) {
   if (length(val)) {
@@ -122,7 +127,9 @@ dot_sparse <- function(x, y) {
   s
 }
 
-# coercions --------------------------------------------------------------
+# -------------------------------------------------------------------------
+# coercions
+# -------------------------------------------------------------------------
 
 setAs("numeric", "sparse_numeric", function(from) {
   idx <- which(from != 0)
@@ -135,46 +142,49 @@ setAs("sparse_numeric", "numeric", function(from) {
   out
 })
 
-# sparse arithmetic generics & methods ----------------------------------
+# -------------------------------------------------------------------------
+# sparse arithmetic generics & methods
+# -------------------------------------------------------------------------
 
 #' Sparse arithmetic operations
 #'
-#' These generics and methods implement basic arithmetic on
-#' [`sparse_numeric`] vectors.
+#' Generics and methods implementing basic arithmetic on
+#' \linkS4class{sparse_numeric} vectors.
 #'
-#' @param x,y Objects of class [`sparse_numeric`].
+#' @param x,y \linkS4class{sparse_numeric} objects.
+#' @param e1,e2 \linkS4class{sparse_numeric} objects for the arithmetic operators (`+`, `-`, `*`).
 #' @param ... Ignored.
 #'
-#' @return For `sparse_add`, `sparse_sub`, and `sparse_mult`, a
-#'   [`sparse_numeric`] object. For `sparse_crossprod`, a numeric scalar
-#'   giving the dot product.
+#' @return
+#' * `sparse_add()`, `sparse_sub()`, and `sparse_mult()` return a
+#'   \linkS4class{sparse_numeric} object.
+#' * `sparse_crossprod()` returns a numeric scalar (dot product).
 #'
 #' @name sparse_ops
+#' @docType methods
 NULL
 
 #' @rdname sparse_ops
 #' @export
-if (!isGeneric("sparse_add"))
-  setGeneric("sparse_add", function(x, y, ...) standardGeneric("sparse_add"))
+setGeneric("sparse_add", function(x, y, ...) standardGeneric("sparse_add"))
 
 #' @rdname sparse_ops
 #' @export
-if (!isGeneric("sparse_sub"))
-  setGeneric("sparse_sub", function(x, y, ...) standardGeneric("sparse_sub"))
+setGeneric("sparse_sub", function(x, y, ...) standardGeneric("sparse_sub"))
 
 #' @rdname sparse_ops
 #' @export
-if (!isGeneric("sparse_mult"))
-  setGeneric("sparse_mult", function(x, y, ...) standardGeneric("sparse_mult"))
+setGeneric("sparse_mult", function(x, y, ...) standardGeneric("sparse_mult"))
 
 #' @rdname sparse_ops
 #' @export
-if (!isGeneric("sparse_crossprod"))
-  setGeneric("sparse_crossprod", function(x, y, ...) standardGeneric("sparse_crossprod"))
+setGeneric("sparse_crossprod", function(x, y, ...) standardGeneric("sparse_crossprod"))
 
 # some sessions don’t have an S4 plot generic yet
 if (!isGeneric("plot"))
   setGeneric("plot", function(x, y, ...) standardGeneric("plot"))
+
+# methods for sparse_* ---------------------------------------------------
 
 #' @rdname sparse_ops
 #' @export
@@ -196,18 +206,25 @@ setMethod("sparse_mult", c("sparse_numeric", "sparse_numeric"),
 setMethod("sparse_crossprod", c("sparse_numeric", "sparse_numeric"),
           function(x, y, ...) { check_len(x, y); dot_sparse(x, y) })
 
-# operators --------------------------------------------------------------
+# -------------------------------------------------------------------------
+# operators
+# -------------------------------------------------------------------------
 
+#' @rdname sparse_ops
 setMethod("+", c(e1 = "sparse_numeric", e2 = "sparse_numeric"),
           function(e1, e2) sparse_add(e1, e2))
 
+#' @rdname sparse_ops
 setMethod("-", c(e1 = "sparse_numeric", e2 = "sparse_numeric"),
           function(e1, e2) sparse_sub(e1, e2))
 
+#' @rdname sparse_ops
 setMethod("*", c(e1 = "sparse_numeric", e2 = "sparse_numeric"),
           function(e1, e2) sparse_mult(e1, e2))
 
-# show & plot ------------------------------------------------------------
+# -------------------------------------------------------------------------
+# show & plot
+# -------------------------------------------------------------------------
 
 setMethod("show", "sparse_numeric", function(object) {
   k <- length(object@pos)
@@ -248,14 +265,16 @@ setMethod("plot", c("sparse_numeric", "sparse_numeric"),
             abline(h = 0, v = 0, lty = 3)
           })
 
-# NEW: mean() method -----------------------------------------------------
+# -------------------------------------------------------------------------
+# mean()
+# -------------------------------------------------------------------------
 
 #' Mean of a sparse_numeric vector
 #'
-#' Computes the mean of the underlying full vector (including implicit zeros)
-#' without coercing to a dense representation.
+#' Computes the mean of the underlying full vector (including implicit
+#' zeros) without coercing to a dense representation.
 #'
-#' @param x A [`sparse_numeric`] object.
+#' @param x A \linkS4class{sparse_numeric} object.
 #' @param ... Ignored.
 #'
 #' @return Numeric scalar mean.
@@ -268,19 +287,23 @@ setMethod("mean", "sparse_numeric", function(x, ...) {
   sum(x@value) / n
 })
 
-# NEW: norm() generic + method ------------------------------------------
+# -------------------------------------------------------------------------
+# norm()
+# -------------------------------------------------------------------------
 
-#' Euclidean norm of a sparse_numeric vector
+#' Compute a vector norm
 #'
-#' Computes \\(\\sqrt{\\sum_i x_i^2}\\) for the underlying vector.
+#' Generic for computing norms of objects. For a
+#' \linkS4class{sparse_numeric} vector this returns the Euclidean (L2)
+#' norm \eqn{sqrt(sum(x_i^2))}.
 #'
-#' @param x A [`sparse_numeric`] object.
+#' @param x Object to compute the norm of.
 #' @param ... Ignored.
 #'
-#' @return Numeric scalar norm.
+#' @return A numeric scalar.
 #' @export
-if (!isGeneric("norm"))
-  setGeneric("norm", function(x, ...) standardGeneric("norm"))
+#' @aliases norm norm,sparse_numeric-method
+setGeneric("norm", function(x, ...) standardGeneric("norm"))
 
 #' @rdname norm
 #' @export
@@ -288,20 +311,24 @@ setMethod("norm", "sparse_numeric", function(x, ...) {
   sqrt(sum(x@value^2))
 })
 
-# NEW: standardize() generic + method -----------------------------------
+# -------------------------------------------------------------------------
+# standardize()
+# -------------------------------------------------------------------------
 
-#' Standardize a sparse_numeric vector
+#' Standardize an object
 #'
-#' Returns a standardized version of `x` where the underlying full vector
-#' (including zeros) has mean 0 and sample standard deviation 1.
+#' Generic to create a standardized version of an object. For
+#' \linkS4class{sparse_numeric} vectors, this centers and scales the
+#' underlying dense vector (including zeros) so that it has mean 0 and
+#' sample standard deviation 1.
 #'
-#' @param x A [`sparse_numeric`] object.
+#' @param x Object to standardize.
 #' @param ... Ignored.
 #'
-#' @return A new [`sparse_numeric`] object.
+#' @return A new \linkS4class{sparse_numeric} object for sparse inputs.
 #' @export
-if (!isGeneric("standardize"))
-  setGeneric("standardize", function(x, ...) standardGeneric("standardize"))
+#' @aliases standardize standardize,sparse_numeric-method
+setGeneric("standardize", function(x, ...) standardGeneric("standardize"))
 
 #' @rdname standardize
 #' @export
@@ -311,28 +338,22 @@ setMethod("standardize", "sparse_numeric", function(x, ...) {
     stop("Cannot standardize a vector of length <= 1.")
   }
 
-  # compute mean and variance using sparse representation
   sum_x  <- sum(x@value)
   sum_x2 <- sum(x@value^2)
 
   mu <- sum_x / n
 
-  # sample variance (like stats::var)
   var_num <- sum_x2 - n * mu^2
   var_den <- n - 1L
-
   if (var_den <= 0L) {
     stop("Cannot standardize: not enough observations.")
   }
-
   var <- var_num / var_den
   if (!is.finite(var) || var <= 0) {
     stop("Standard deviation is zero or not finite; cannot standardize.")
   }
-
   s <- sqrt(var)
 
-  # build dense, standardize, then convert back to sparse
   dense <- numeric(n)
   if (length(x@pos)) dense[x@pos] <- x@value
   dense_std <- (dense - mu) / s
